@@ -1,0 +1,67 @@
+---
+services:
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - WEBUI_PORT=8080
+      - TORRENTING_PORT=6881
+      - TELEGRAM_TOKEN= #optional
+      - TELEGRAM_CHAT_ID= #optional
+    volumes:
+      - ./qbittorrent_config:/config
+      - ./nfs_nas:/downloads #save data for NAS server
+      - /opt/docker/jackett/blackhole:/torrents
+      - ./qbittorrent_incomplete:/incomplete #optional
+      - ./torrents_backup:/torrents_backup #optional
+      - ./qbittorrent_python:/telebot
+    ports:
+      - 8080:8080
+      - 6881:6881
+      - 6881:6881/udp
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "1"
+    networks:
+      docker-net:
+        ipv4_address: 172.29.0.2
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    depends_on:
+      - qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - AUTO_UPDATE=true #optional
+      - RUN_OPTS= #optional
+    volumes:
+      - ./jackett_data:/config
+      - /opt/docker/jackett/blackhole:/downloads
+    ports:
+      - 80:9117
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "1"
+    networks:
+      docker-net:
+        ipv4_address: 172.29.0.3
+
+networks:
+  docker-net:
+    name: "dns-docker"
+    ipam:
+        driver: default
+        config:
+            - subnet: 172.29.0.0/24
